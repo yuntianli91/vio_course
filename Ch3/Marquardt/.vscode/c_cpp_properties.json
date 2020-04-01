@@ -1,0 +1,31 @@
+{
+    "configurations": [
+        {
+            "browse": {
+                "databaseFilename": "",
+                "limitSymbolsToIncludedHeaders": true
+            },
+            "includePath": [
+                "/home/yuntian/devel/include/**",
+                "/home/yuntian/MYNT-EYE-S-SDK/wrappers/ros/devel/include/**",
+                "/home/yuntian/catkin_ws/devel/include/**",
+                "/opt/ros/melodic/include/**",
+                "/home/yuntian/catkin_ws/src/VINS-Mono/camera_model/include/**",
+                "/home/yuntian/catkin_ws/src/hitll/dataset_publisher/include/**",
+                "/home/yuntian/src/mavros/libmavconn/include/**",
+                "/home/yuntian/src/mavros/mavros/include/**",
+                "/home/yuntian/src/mavros/mavros_msgs/include/**",
+                "/home/yuntian/catkin_ws/src/offboard_control/include/**",
+                "/home/yuntian/src/mavros/test_mavros/include/**",
+                "/usr/include/**",
+                "${workspaceFolder}"
+            ],
+            "name": "ROS",
+            "intelliSenseMode": "gcc-x64",
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++17"
+        }
+    ],
+    "version": 4
+}
