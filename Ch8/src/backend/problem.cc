@@ -409,9 +409,17 @@ void Problem::SolveLinearSystem() {
         // step1: schur complement --> Hpp, bpp
         int reserve_size = ordering_poses_;
         int marg_size = ordering_landmarks_;
-        MatXX Hmm = Hessian_.block(reserve_size, reserve_size, marg_size, marg_size);
-        MatXX Hpm = Hessian_.block(0, reserve_size, reserve_size, marg_size);
-        MatXX Hmp = Hessian_.block(reserve_size, 0, marg_size, reserve_size);
+        // 添加lambda
+        MatXX currentHessian = Hessian_;
+        
+        for(int i=0; i< Hessian_.cols(); i++){
+            currentHessian(i, i) += currentLambda_;
+        }
+        
+        // 取各元素
+        MatXX Hmm = currentHessian.block(reserve_size, reserve_size, marg_size, marg_size);
+        MatXX Hpm = currentHessian.block(0, reserve_size, reserve_size, marg_size);
+        MatXX Hmp = currentHessian.block(reserve_size, 0, marg_size, reserve_size);
         VecX bpp = b_.segment(0, reserve_size);
         VecX bmm = b_.segment(reserve_size, marg_size);
 
@@ -425,21 +433,21 @@ void Problem::SolveLinearSystem() {
         }
 
         MatXX tempH = Hpm * Hmm_inv;
-        H_pp_schur_ = Hessian_.block(0, 0, ordering_poses_, ordering_poses_) - tempH * Hmp;
+        H_pp_schur_ = currentHessian.block(0, 0, ordering_poses_, ordering_poses_) - tempH * Hmp;
         b_pp_schur_ = bpp - tempH * bmm;
-
+        
         // step2: solve Hpp * delta_x = bpp
         VecX delta_x_pp(VecX::Zero(reserve_size));
 
-        for (ulong i = 0; i < ordering_poses_; ++i) {
-            H_pp_schur_(i, i) += currentLambda_;              // LM Method
-        }
+        // for (ulong i = 0; i < ordering_poses_; ++i) {
+            // H_pp_schur_(i, i) += currentLambda_;              // LM Method
+        // }
 
         // TicToc t_linearsolver;
         delta_x_pp =  H_pp_schur_.ldlt().solve(b_pp_schur_);//  SVec.asDiagonal() * svd.matrixV() * Ub;    
         delta_x_.head(reserve_size) = delta_x_pp;
         // std::cout << " Linear Solver Time Cost: " << t_linearsolver.toc() << std::endl;
-
+        
         // step3: solve Hmm * delta_x = bmm - Hmp * delta_x_pp;
         VecX delta_x_ll(marg_size);
         delta_x_ll = Hmm_inv * (bmm - Hmp * delta_x_pp);
