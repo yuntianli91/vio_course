@@ -191,7 +191,7 @@ bool Problem::Solve(int iterations) {
         int false_cnt = 0;
         while (!oneStepSuccess && false_cnt < 10)  // 不断尝试 Lambda, 直到成功迭代一步
         {
-            // setLambda
+            // setLambda 该函数功能被移动到了SolveLinearSystem中
 //            AddLambdatoHessianLM();
             // 第四步，解线性方程
             SolveLinearSystem();
@@ -404,9 +404,9 @@ void Problem::SolveLinearSystem() {
         delta_x_ = H.ldlt().solve(b_);
 
     } else {
-
+        
 //        TicToc t_Hmminv;
-        // step1: schur marginalization --> Hpp, bpp
+        // step1: schur complement --> Hpp, bpp
         int reserve_size = ordering_poses_;
         int marg_size = ordering_landmarks_;
         MatXX Hmm = Hessian_.block(reserve_size, reserve_size, marg_size, marg_size);

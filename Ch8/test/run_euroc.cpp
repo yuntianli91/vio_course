@@ -142,7 +142,7 @@ void DrawIMGandGLinMainThrd(){
 		}
 
 		pSystem->DrawGLFrame();
-		usleep(50000*nDelayTimes);
+		usleep(5000*nDelayTimes);
 	}
 	fsImage.close();
 
