@@ -1,4 +1,5 @@
 #include "System.h"
+#include <sys/stat.h>
 
 #include <pangolin/pangolin.h>
 
@@ -21,12 +22,22 @@ System::System(string sConfig_file_)
     // if (fp_pose == nullptr){
         // cerr << "fp_pose is not open !" << endl;
     // }
-    system("rm ./pose_output.txt");
+    // 判断文件是否存在，若存在则删除
+    string filename = "./pose_output.txt";
+    struct stat buffer;
+
+    if(stat(filename.c_str(), &buffer) == 0) 
+        system("rm ./pose_output.txt");
     ofs_pose.open("./pose_output.txt",fstream::app | fstream::out);
+
     if(!ofs_pose.is_open())
     {
         cerr << "ofs_pose is not open" << endl;
     }
+    // 判断文件是否存在，存在则删除
+    filename = "./solver_cost.txt";
+    if(stat(filename.c_str(), &buffer) == 0)
+        system(("rm " + filename).c_str());
     // thread thd_RunBackend(&System::process,this);
     // thd_RunBackend.detach();
     cout << "2 System() end" << endl;
@@ -50,6 +61,7 @@ System::~System()
     m_estimator.unlock();
 
     ofs_pose.close();
+    ofs_time.close();
     // fclose(fp_pose);
 }
 

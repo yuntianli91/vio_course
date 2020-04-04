@@ -1,7 +1,6 @@
-#include <iostream>
-#include <fstream>
 #include <eigen3/Eigen/Dense>
 #include <iomanip>
+#include <sys/stat.h>
 #include "backend/problem.h"
 #include "utility/tic_toc.h"
 
@@ -186,7 +185,7 @@ bool Problem::Solve(int iterations) {
     int iter = 0;
     double last_chi_ = 1e20;
     while (!stop && (iter < iterations)) {
-        std::cout << "iter: " << iter << " , chi= " << currentChi_ << " , Lambda= " << currentLambda_ << std::endl;
+        // std::cout << "iter: " << iter << " , chi= " << currentChi_ << " , Lambda= " << currentLambda_ << std::endl;
         bool oneStepSuccess = false;
         int false_cnt = 0;
         while (!oneStepSuccess && false_cnt < 10)  // 不断尝试 Lambda, 直到成功迭代一步
@@ -243,10 +242,22 @@ bool Problem::Solve(int iterations) {
         }
         last_chi_ = currentChi_;
     }
-    std::cout << "problem solve cost: " << t_solve.toc() << " ms" << std::endl;
-    std::cout << "   makeHessian cost: " << t_hessian_cost_ << " ms" << std::endl;
+
+    solve_cost_ = t_solve.toc();
+    saveSolverCost(solve_cost_);
+    // ofs_time_ << solve_cost << endl;
+    std::cout << "problem solve cost: " << solve_cost_ << " ms" << std::endl;
+    // std::cout << "   makeHessian cost: " << t_hessian_cost_ << " ms" << std::endl;
     t_hessian_cost_ = 0.;
     return true;
+}
+
+void Problem::saveSolverCost(double solver_cost){
+
+    FILE * fp;
+    fp = fopen("./solver_cost.txt", "a+");
+    fprintf(fp, "%lf\n", solver_cost);
+    fclose(fp);
 }
 
 bool Problem::SolveGenericProblem(int iterations) {
@@ -687,7 +698,7 @@ bool Problem::Marginalize(const std::vector<std::shared_ptr<Vertex> > margVertex
         }
 
     }
-        std::cout << "edge factor cnt: " << ii <<std::endl;
+        // std::cout << "edge factor cnt: " << ii <<std::endl;
 
     /// marg landmark
     int reserve_size = pose_dim;

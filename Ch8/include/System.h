@@ -107,6 +107,7 @@ private:
     bool init_imu = 1;
     double last_imu_t = 0;
     std::ofstream ofs_pose; 
+    std::ofstream ofs_time;
     // FILE *fp_pose;
     std::vector<Eigen::Vector3d> vPath_to_draw;
     bool bStart_backend;

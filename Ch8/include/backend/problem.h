@@ -2,6 +2,8 @@
 #define MYSLAM_BACKEND_PROBLEM_H
 
 #include <unordered_map>
+#include <iostream>
+#include <fstream>
 #include <map>
 #include <memory>
 
@@ -88,6 +90,8 @@ public:
 
     //test compute prior
     void TestComputePrior();
+    // 返回求解器耗时
+    double getSolverCost(){return solve_cost_;}
 
 private:
 
@@ -151,16 +155,20 @@ private:
 
     /// PCG 迭代线性求解器
     VecX PCGSolver(const MatXX &A, const VecX &b, int maxIter);
+    /// 存储时间
+    void saveSolverCost(double solver_cost);
 
     double currentLambda_;
     double currentChi_;
     double stopThresholdLM_;    // LM 迭代退出阈值条件
     double ni_;                 //控制 Lambda 缩放大小
+    double solve_cost_; // 求解器每次迭代耗时
 
     ProblemType problemType_;
 
     /// 整个信息矩阵
     MatXX Hessian_;
+    MatXX diagHessian_;
     VecX b_;
     VecX delta_x_;
 
