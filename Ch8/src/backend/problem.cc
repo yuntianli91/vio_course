@@ -185,7 +185,7 @@ bool Problem::Solve(int iterations) {
     int iter = 0;
     double last_chi_ = 1e20;
     while (!stop && (iter < iterations)) {
-        // std::cout << "iter: " << iter << " , chi= " << currentChi_ << " , Lambda= " << currentLambda_ << std::endl;
+        std::cout << "iter: " << iter << " , chi= " << currentChi_ << " , Lambda= " << currentLambda_ << std::endl;
         bool oneStepSuccess = false;
         int false_cnt = 0;
         while (!oneStepSuccess && false_cnt < 10)  // 不断尝试 Lambda, 直到成功迭代一步
@@ -246,7 +246,7 @@ bool Problem::Solve(int iterations) {
     solve_cost_ = t_solve.toc();
     saveSolverCost(solve_cost_);
     // ofs_time_ << solve_cost << endl;
-    std::cout << "problem solve cost: " << solve_cost_ << " ms" << std::endl;
+    // std::cout << "problem solve cost: " << solve_cost_ << " ms" << std::endl;
     // std::cout << "   makeHessian cost: " << t_hessian_cost_ << " ms" << std::endl;
     t_hessian_cost_ = 0.;
     return true;
@@ -423,11 +423,17 @@ void Problem::SolveLinearSystem() {
         // 添加lambda
         MatXX currentHessian = Hessian_;
         
+        // diagHessian_ = MatXX::Zero(Hessian_.rows(), Hessian_.cols());
         for(int i=0; i< Hessian_.cols(); i++){
+            // diagHessian_(i, i) = Hessian_(i, i);
             currentHessian(i, i) += currentLambda_;
         }
+        // currentHessian += currentLambda_ * diagHessian_;
         
         // 取各元素
+        // MatXX Hmm = Hessian_.block(reserve_size, reserve_size, marg_size, marg_size);
+        // MatXX Hpm = Hessian_.block(0, reserve_size, reserve_size, marg_size);
+        // MatXX Hmp = Hessian_.block(reserve_size, 0, marg_size, reserve_size);
         MatXX Hmm = currentHessian.block(reserve_size, reserve_size, marg_size, marg_size);
         MatXX Hpm = currentHessian.block(0, reserve_size, reserve_size, marg_size);
         MatXX Hmp = currentHessian.block(reserve_size, 0, marg_size, reserve_size);
@@ -445,6 +451,7 @@ void Problem::SolveLinearSystem() {
 
         MatXX tempH = Hpm * Hmm_inv;
         H_pp_schur_ = currentHessian.block(0, 0, ordering_poses_, ordering_poses_) - tempH * Hmp;
+        // H_pp_schur_ = Hessian_.block(0, 0, ordering_poses_, ordering_poses_) - tempH * Hmp;
         b_pp_schur_ = bpp - tempH * bmm;
         
         // step2: solve Hpp * delta_x = bpp
@@ -559,9 +566,9 @@ void Problem::RemoveLambdaHessianLM() {
 
 bool Problem::IsGoodStepInLM() {
     double scale = 0;
-//    scale = 0.5 * delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);
+    scale = 0.5 * delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);
 //    scale += 1e-3;    // make sure it's non-zero :)
-    scale = 0.5* delta_x_.transpose() * (currentLambda_ * delta_x_ + b_); // 这里上下是否乘以0.5不会影响结果
+    // scale = 0.5 * delta_x_.transpose() * (currentLambda_ * diagHessian_ * delta_x_ + b_); // 这里上下是否乘以0.5不会影响结果
     scale += 1e-6;    // make sure it's non-zero :)
 
     // recompute residuals after update state
@@ -575,6 +582,8 @@ bool Problem::IsGoodStepInLM() {
     tempChi *= 0.5;          // 1/2 * err^2；上下同时乘以0.5不会影响结果，但需要同时！！
 
     double rho = (currentChi_ - tempChi) / scale;
+
+    // ---nielsen
     if (rho > 0 && isfinite(tempChi))   // last step was good, 误差在下降
     {
         double alpha = 1. - pow((2 * rho - 1), 3);
@@ -589,6 +598,32 @@ bool Problem::IsGoodStepInLM() {
         ni_ *= 2;
         return false;
     }
+    // --- quadratic
+    // double diff = currentChi_ - tempChi;
+    // double h = b_.transpose() * delta_x_;
+    // double alpha = h / (0.5 * diff + h);
+    // if(rho > 0 && isfinite(tempChi)){
+    //     currentLambda_ = std::max(currentLambda_ / (1 + alpha), 1e-7);
+    //     currentChi_ = tempChi;
+    // } else if(rho <= 0 && isfinite(tempChi)){
+    //     currentLambda_ = currentLambda_ + std::abs(diff * 0.5 / alpha);
+    //     currentChi_ = tempChi;
+    // } else{
+    //     return false;
+    // }
+    // --- Marquat
+    // if ( rho < 0.15 && isfinite(tempChi)) {
+    //     currentLambda_ *= 2.0;
+    //     currentChi_ = tempChi;
+    //     return true;
+    // }else if ( rho > 0.85 && isfinite(tempChi) ) {
+    //     currentLambda_ /= 3.0;
+    //     currentChi_ = tempChi;
+    //     return true;    
+    // } else {
+    //     // do nothing
+    //     return false;
+    // }
 }
 
 /** @brief conjugate gradient with perconditioning

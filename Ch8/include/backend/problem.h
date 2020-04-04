@@ -163,6 +163,8 @@ private:
     double stopThresholdLM_;    // LM 迭代退出阈值条件
     double ni_;                 //控制 Lambda 缩放大小
     double solve_cost_; // 求解器每次迭代耗时
+    double L_up_ = 6.;
+    double L_down_ = 5.;
 
     ProblemType problemType_;
 

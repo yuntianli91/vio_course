@@ -1039,13 +1039,13 @@ void Estimator::problemSolve()
     // update bprior_,  Hprior_ do not need update
     if (Hprior_.rows() > 0)
     {
-        std::cout << "----------- update bprior -------------\n";
-        std::cout << "             before: " << bprior_.norm() << std::endl;
-        std::cout << "                     " << errprior_.norm() << std::endl;
+        // std::cout << "----------- update bprior -------------\n";
+        // std::cout << "             before: " << bprior_.norm() << std::endl;
+        // std::cout << "                     " << errprior_.norm() << std::endl;
         bprior_ = problem.GetbPrior();
         errprior_ = problem.GetErrPrior();
-        std::cout << "             after: " << bprior_.norm() << std::endl;
-        std::cout << "                    " << errprior_.norm() << std::endl;
+        // std::cout << "             after: " << bprior_.norm() << std::endl;
+        // std::cout << "                    " << errprior_.norm() << std::endl;
     }
 
     // update parameter
