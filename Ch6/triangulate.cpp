@@ -29,8 +29,10 @@ struct Pose
 
     Eigen::Vector2d uv;    // 这帧图像观测到的特征坐标
 };
-int main()
+
+int main(int argc, char** argv)
 {
+    for(int pixel_noise = 0; pixel_noise <= 60; pixel_noise+=3){
 
     // 10帧相机位姿
     int poseNums = 10;
@@ -59,6 +61,8 @@ int main()
     // 这个特征从第三帧相机开始被观测，i=3
     int start_frame_id = 3;
     int end_frame_id = poseNums;
+    
+    cout << "current noise is " << pixel_noise << " pixel.\n";
     for (int i = start_frame_id; i < end_frame_id; ++i) {
         Eigen::Matrix3d Rcw = camera_pose[i].Rwc.transpose();
         Eigen::Vector3d Pc = Rcw * (Pw - camera_pose[i].twc);
@@ -67,7 +71,8 @@ int main()
         double y = Pc.y();
         double z = Pc.z();
         // 生成随机误差（误差大于0.2个像素就会使后续估计出现较大误差，故暂时放弃）
-        std::normal_distribution<double> uv_rand(0, 0.0);
+        // 像素误差要转化为归一化平面误差
+        std::normal_distribution<double> uv_rand(0, pixel_noise / 460.);
         Eigen::Vector2d uv_noise;
         uv_noise.x() = uv_rand(generator);
         uv_noise.y() = uv_rand(generator);
@@ -85,7 +90,10 @@ int main()
     Eigen::Matrix<double, 3, 4> Tcw; // 位姿矩阵T^c_w;
     double sigma_34; // 最后两维度奇异值的比值。
     double estimated_error; // 估计误差
-    ofstream out_to_file("results.txt");
+    ofstream ofs_sigma;
+    ofs_sigma.open("./sigma.txt", fstream::app | fstream::out);
+    ofstream ofs_result;
+    ofs_result.open("./result.txt", fstream::app | fstream::out);
     for (int i=start_frame_id; i< poseNums; i++){
         Tcw.block<3, 3>(0, 0) = camera_pose[i].Rwc.transpose();
         Tcw.block<3, 1>(0, 3) = -camera_pose[i].Rwc.transpose() * camera_pose[i].twc;
@@ -104,13 +112,19 @@ int main()
         estimated_error = (P_est - Pw).norm();
         /* your code end */
         sigma_34 = svd.singularValues()(2) / svd.singularValues()(3);
-        out_to_file << sigma_34 << " " << estimated_error << "\n";
-        std::cout << "==========  loop " << i-2 << " ==========" << endl;
-        std::cout <<"sigular values: " << svd.singularValues().transpose() << std::endl;
-        std::cout <<"ground truth: \n"<< Pw.transpose() <<std::endl;
-        std::cout <<"your result: \n"<< P_est.transpose() <<std::endl;
+        ofs_sigma << sigma_34 << " ";
+        ofs_result << estimated_error << " ";
+        // std::cout << "==========  loop " << i-2 << " ==========" << endl;
+        // std::cout <<"sigular values: " << svd.singularValues().transpose() << std::endl;
+        // std::cout <<"ground truth: \n"<< Pw.transpose() <<std::endl;
+        // std::cout <<"your result: \n"<< P_est.transpose() <<std::endl;
     }
-    out_to_file.close();
+    ofs_sigma << endl;
+    ofs_result << endl;
+
+    ofs_sigma.close();
+    ofs_result.close();
    // TODO:: 请如课程讲解中提到的判断三角化结果好坏的方式，绘制奇异值比值变化曲线
+    }
     return 0;
 }

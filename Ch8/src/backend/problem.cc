@@ -421,22 +421,19 @@ void Problem::SolveLinearSystem() {
         int reserve_size = ordering_poses_;
         int marg_size = ordering_landmarks_;
         // 添加lambda
-        MatXX currentHessian = Hessian_;
+        // MatXX currentHessian = Hessian_;
         
-        // diagHessian_ = MatXX::Zero(Hessian_.rows(), Hessian_.cols());
-        for(int i=0; i< Hessian_.cols(); i++){
-            // diagHessian_(i, i) = Hessian_(i, i);
-            currentHessian(i, i) += currentLambda_;
-        }
-        // currentHessian += currentLambda_ * diagHessian_;
+        // for(int i=0; i< Hessian_.cols(); i++){
+            // currentHessian(i, i) += currentLambda_;
+        // }
         
         // 取各元素
-        // MatXX Hmm = Hessian_.block(reserve_size, reserve_size, marg_size, marg_size);
-        // MatXX Hpm = Hessian_.block(0, reserve_size, reserve_size, marg_size);
-        // MatXX Hmp = Hessian_.block(reserve_size, 0, marg_size, reserve_size);
-        MatXX Hmm = currentHessian.block(reserve_size, reserve_size, marg_size, marg_size);
-        MatXX Hpm = currentHessian.block(0, reserve_size, reserve_size, marg_size);
-        MatXX Hmp = currentHessian.block(reserve_size, 0, marg_size, reserve_size);
+        MatXX Hmm = Hessian_.block(reserve_size, reserve_size, marg_size, marg_size);
+        MatXX Hpm = Hessian_.block(0, reserve_size, reserve_size, marg_size);
+        MatXX Hmp = Hessian_.block(reserve_size, 0, marg_size, reserve_size);
+        // MatXX Hmm = currentHessian.block(reserve_size, reserve_size, marg_size, marg_size);
+        // MatXX Hpm = currentHessian.block(0, reserve_size, reserve_size, marg_size);
+        // MatXX Hmp = currentHessian.block(reserve_size, 0, marg_size, reserve_size);
         VecX bpp = b_.segment(0, reserve_size);
         VecX bmm = b_.segment(reserve_size, marg_size);
 
@@ -450,16 +447,16 @@ void Problem::SolveLinearSystem() {
         }
 
         MatXX tempH = Hpm * Hmm_inv;
-        H_pp_schur_ = currentHessian.block(0, 0, ordering_poses_, ordering_poses_) - tempH * Hmp;
-        // H_pp_schur_ = Hessian_.block(0, 0, ordering_poses_, ordering_poses_) - tempH * Hmp;
+        // H_pp_schur_ = currentHessian.block(0, 0, ordering_poses_, ordering_poses_) - tempH * Hmp;
+        H_pp_schur_ = Hessian_.block(0, 0, ordering_poses_, ordering_poses_) - tempH * Hmp;
         b_pp_schur_ = bpp - tempH * bmm;
         
         // step2: solve Hpp * delta_x = bpp
         VecX delta_x_pp(VecX::Zero(reserve_size));
 
-        // for (ulong i = 0; i < ordering_poses_; ++i) {
-            // H_pp_schur_(i, i) += currentLambda_;              // LM Method
-        // }
+        for (ulong i = 0; i < ordering_poses_; ++i) {
+            H_pp_schur_(i, i) += currentLambda_;              // LM Method
+        }
 
         // TicToc t_linearsolver;
         delta_x_pp =  H_pp_schur_.ldlt().solve(b_pp_schur_);//  SVec.asDiagonal() * svd.matrixV() * Ub;    
@@ -583,21 +580,21 @@ bool Problem::IsGoodStepInLM() {
 
     double rho = (currentChi_ - tempChi) / scale;
 
-    // ---nielsen
-    if (rho > 0 && isfinite(tempChi))   // last step was good, 误差在下降
-    {
-        double alpha = 1. - pow((2 * rho - 1), 3);
-        alpha = std::min(alpha, 2. / 3.);
-        double scaleFactor = (std::max)(1. / 3., alpha);
-        currentLambda_ *= scaleFactor;
-        ni_ = 2;
-        currentChi_ = tempChi;
-        return true;
-    } else {
-        currentLambda_ *= ni_;
-        ni_ *= 2;
-        return false;
-    }
+    // // ---nielsen
+    // if (rho > 0 && isfinite(tempChi))   // last step was good, 误差在下降
+    // {
+    //     double alpha = 1. - pow((2 * rho - 1), 3);
+    //     alpha = std::min(alpha, 2. / 3.);
+    //     double scaleFactor = (std::max)(1. / 3., alpha);
+    //     currentLambda_ *= scaleFactor;
+    //     ni_ = 2;
+    //     currentChi_ = tempChi;
+    //     return true;
+    // } else {
+    //     currentLambda_ *= ni_;
+    //     ni_ *= 2;
+    //     return false;
+    // }
     // --- quadratic
     // double diff = currentChi_ - tempChi;
     // double h = b_.transpose() * delta_x_;
@@ -611,12 +608,12 @@ bool Problem::IsGoodStepInLM() {
     // } else{
     //     return false;
     // }
-    // --- Marquat
-    // if ( rho < 0.15 && isfinite(tempChi)) {
+    // --- Marquat failed
+    // if ( 0.0 < rho < 0.25 && isfinite(tempChi)) {
     //     currentLambda_ *= 2.0;
     //     currentChi_ = tempChi;
     //     return true;
-    // }else if ( rho > 0.85 && isfinite(tempChi) ) {
+    // }else if ( rho > 0.75 && isfinite(tempChi) ) {
     //     currentLambda_ /= 3.0;
     //     currentChi_ = tempChi;
     //     return true;    
