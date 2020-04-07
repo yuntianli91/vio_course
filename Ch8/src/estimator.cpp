@@ -1034,7 +1034,7 @@ void Estimator::problemSolve()
         }
     }
 
-    problem.Solve(10);
+    problem.Solve(SOLVER_TYPE, 10);
 
     // update bprior_,  Hprior_ do not need update
     if (Hprior_.rows() > 0)

@@ -60,6 +60,7 @@ extern double TR;
 extern int ESTIMATE_TD;
 extern int ROLLING_SHUTTER;
 extern double ROW, COL;
+extern int SOLVER_TYPE;
 
 // void readParameters(ros::NodeHandle &n);
 

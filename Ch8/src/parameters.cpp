@@ -20,6 +20,7 @@ Eigen::Vector3d G{0.0, 0.0, 9.8};
 double BIAS_ACC_THRESHOLD;
 double BIAS_GYR_THRESHOLD;
 double SOLVER_TIME;
+int SOLVER_TYPE;
 int NUM_ITERATIONS;
 int ESTIMATE_EXTRINSIC;
 int ESTIMATE_TD;
@@ -68,6 +69,7 @@ void readParameters(string config_file)
     fsSettings["imu_topic"] >> IMU_TOPIC;
 
     FOCAL_LENGTH = 460;
+    SOLVER_TYPE = fsSettings["solver_type"];
     SOLVER_TIME = fsSettings["max_solver_time"];
     NUM_ITERATIONS = fsSettings["max_num_iterations"];
     MIN_PARALLAX = fsSettings["keyframe_parallax"];

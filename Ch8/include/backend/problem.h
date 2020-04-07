@@ -63,11 +63,30 @@ public:
     void GetOutlierEdges(std::vector<std::shared_ptr<Edge>> &outlier_edges);
 
     /**
-     * 求解此问题
-     * @param iterations
-     * @return
+     * @brief 使用非线性求解器求解
+     * 
+     * @param iterations 最大迭代次数 
+     * @param type 采用的求解器类型，0-LM，1-DogLeg
+     * @return true 
+     * @return false 
      */
-    bool Solve(int iterations = 10);
+    bool Solve(int type, int iterations = 10);
+    /**
+     * @brief 采用LM策略求解
+     * 
+     * @param iterations 
+     * @return true 
+     * @return false 
+     */
+    bool SolveLM(int iterations = 10);
+    /**
+     * @brief 采用DogLeg策略求解
+     * 
+     * @param iterations 
+     * @return true 
+     * @return false 
+     */
+    bool SolveDogLeg(int iterations = 10);
 
     /// 边缘化一个frame和以它为host的landmark
     bool Marginalize(std::shared_ptr<Vertex> frameVertex,
@@ -115,6 +134,21 @@ private:
 
     /// 解线性方程
     void SolveLinearSystem();
+    /// 求解Dogleg步长
+    void SolveDogLegStep();
+    /**
+     * @brief 使用Schur complement加速求解线性方程组Hdelta_x=b（针对类slam问题，即存在主对角线上存在分块对角矩阵）
+     * 
+     * @param Hessian： H矩阵 
+     * @param b ：b
+     * @param x ：x
+     * @param reserve_num：保留的变量数目 
+     * @param schur_num ：schur的变量数目
+     * @param schur_vertices：schur变量的顶点map, std::map<unsigned long, std::shared_ptr<Vertex>>
+     * @param lambda ：是否添加阻尼
+     */
+    void SolveLinearWithSchur(MatXX & Hessian, VecX &b, VecX & delta_x, int reserve_size, int schur_size,
+                        std::map<unsigned long, std::shared_ptr<Vertex>> & schur_vertices,  double lambda = 0.);
 
     /// 更新状态变量
     void UpdateStates();
@@ -144,6 +178,8 @@ private:
     /// Levenberg
     /// 计算LM算法的初始Lambda
     void ComputeLambdaInitLM();
+    /// 计算DogLeg算法的初始误差及半径
+    void ComputeRadiusInitDogLeg();
 
     /// Hessian 对角线加上或者减去  Lambda
     void AddLambdatoHessianLM();
@@ -152,17 +188,26 @@ private:
 
     /// LM 算法中用于判断 Lambda 在上次迭代中是否可以，以及Lambda怎么缩放
     bool IsGoodStepInLM();
-
+    /// DogLeg 算法中用于判断上次迭代效果及信赖域半径如何缩放
+    bool IsGoodStepInDogLeg();
     /// PCG 迭代线性求解器
     VecX PCGSolver(const MatXX &A, const VecX &b, int maxIter);
     /// 存储时间
     void saveSolverCost(double solver_cost);
 
-    double currentLambda_;
     double currentChi_;
+    double solve_cost_; // 求解器每次迭代耗时
+    // DogLeg 相关参数
+    double currentRadius_;
+    double stopThresholdDogLeg_;
+    VecX h_gn_; // 高斯牛顿法步长
+    VecX h_sd; // 最速下降法步长（带alpha）
+    double alpha_ = 0.0;
+    double beta_ = 0.0;
+    // LM相关参数
+    double currentLambda_;
     double stopThresholdLM_;    // LM 迭代退出阈值条件
     double ni_;                 //控制 Lambda 缩放大小
-    double solve_cost_; // 求解器每次迭代耗时
     double L_up_ = 6.;
     double L_down_ = 5.;
 
