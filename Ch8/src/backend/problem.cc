@@ -235,8 +235,8 @@ bool Problem::SolveDogLeg(int itertaions){
     solve_cost_ = t_solver.toc();
     saveSolverCost(solve_cost_);
     // ofs_time_ << solve_cost << endl;
-    // std::cout << "problem solve cost: " << solve_cost_ << " ms" << std::endl;
-    // std::cout << "   makeHessian cost: " << t_hessian_cost_ << " ms" << std::endl;
+    std::cout << "problem solve cost: " << solve_cost_ << " ms" << std::endl;
+    std::cout << "   makeHessian cost: " << t_hessian_cost_ << " ms" << std::endl;
     t_hessian_cost_ = 0.;
     return true;
 }
@@ -591,9 +591,9 @@ void Problem::SolveDogLegStep(){
     if (problemType_ == ProblemType::GENERIC_PROBLEM) {
         // PCG solver
         MatXX H = Hessian_;
-        for (size_t i = 0; i < Hessian_.cols(); ++i) {
-            H(i, i) += currentLambda_;
-        }
+        // for (size_t i = 0; i < Hessian_.cols(); ++i) {
+        //     H(i, i) += currentLambda_;
+        // }
         // delta_x_ = PCGSolver(H, b_, H.rows() * 2);
         h_gn_ = H.ldlt().solve(b_);
     } else {
@@ -717,13 +717,14 @@ void Problem::ComputeRadiusInitDogLeg(){
     // 计算先验chi
     if(err_prior_.rows() > 0){
         currentChi_ += err_prior_.squaredNorm();
+        // currentChi_ += err_prior_.norm();
     }
 
     currentChi_ *= 0.5; // 0.5 * error^2
 
-    stopThresholdDogLeg_ = 1e-10 * currentChi_;
+    stopThresholdDogLeg_ = 1e-15 * currentChi_;
 
-    currentRadius_ = 1e2;
+    currentRadius_ = 1e4;
 }
 
 void Problem::AddLambdatoHessianLM() {
@@ -817,6 +818,7 @@ bool Problem::IsGoodStepInDogLeg(){
     // 先验残差
     if(err_prior_.size() > 0){
         tempChi += err_prior_.squaredNorm();
+        // tempChi += err_prior_.norm();
     }
 
     tempChi *= 0.5; // 0.5 * error^2
@@ -824,7 +826,7 @@ bool Problem::IsGoodStepInDogLeg(){
     // 计算rho
     double rho = 0;
     double scale = 0.;
-    int option = 1; // 选择论文策略或g20策略
+    int option = 0; // 选择论文策略或g20策略
     // 根据不同策略计算线性化模型误差
     switch (option)
     {
