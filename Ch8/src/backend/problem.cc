@@ -188,7 +188,7 @@ bool Problem::SolveDogLeg(int itertaions){
     }
     // 求解器计时
     TicToc t_solver;
-    // 对变量进行排序（位姿在前，路标灾后）
+    // 对变量进行排序（位姿在前，路标在后）
     SetOrdering();
     // 构建Hessian矩阵
     MakeHessian();
@@ -201,7 +201,7 @@ bool Problem::SolveDogLeg(int itertaions){
     // 一直迭代到大于最大迭代次数或满足终止条件
     while((iter < itertaions) && !stop){
         // 输出当前结果
-        std::cout << "iter: " << iter << " , chi= " << currentChi_ << " , Lambda= " << currentLambda_ << std::endl;
+        std::cout << "iter: " << iter << " , chi= " << currentChi_ << " , currentRadius= " << currentRadius_ << std::endl;
         bool oneStepSuccess = false; // 当前迭代是否成功
         int false_cnt = 0; // 迭代失败次数
         // 多次尝试直到成功或大于最大尝试次数
@@ -477,6 +477,8 @@ void Problem::MakeHessian() {
 
 void Problem::SolveLinearWithSchur(MatXX & Hessian, VecX &b, VecX & delta_x, int reserve_size, int schur_size ,
                             std::map<unsigned long, std::shared_ptr<Vertex>> & schur_vertices, double lambda){
+    // cout << "solve linear with schur, current pose_ordering is: " << ordering_poses_ << 
+        // " and current landmark ordering is " << ordering_landmarks_ << endl;
     // 取Hessian矩阵的对应分块
     MatXX Hrr = Hessian.block(0, 0, reserve_size, reserve_size);
     MatXX Hss = Hessian.block(reserve_size, reserve_size, schur_size, schur_size);
@@ -584,17 +586,51 @@ void Problem::SolveDogLegStep(){
     // ----- 求解h_gn -----//
     // 对于普通问题，直接采用ldlt求解，
     // 对于SLAM问题，可采用schur Complement加速
-    if(problemType_ == ProblemType::GENERIC_PROBLEM){
-        h_gn_ = Hessian_.ldlt().solve(b_);
-    }   
-    else{
+    h_gn_ = VecX::Zero(delta_x_.size()); // 为h_gn_赋零值，主要是为了确定维数，否则Eigen操作VecX会报错
+
+    if (problemType_ == ProblemType::GENERIC_PROBLEM) {
+        // PCG solver
+        MatXX H = Hessian_;
+        for (size_t i = 0; i < Hessian_.cols(); ++i) {
+            H(i, i) += currentLambda_;
+        }
+        // delta_x_ = PCGSolver(H, b_, H.rows() * 2);
+        h_gn_ = H.ldlt().solve(b_);
+    } else {
         int reserve_size = ordering_poses_;
         int schur_size = ordering_landmarks_;
-        SolveLinearWithSchur(Hessian_, b_, h_gn_, reserve_size, schur_size, idx_landmark_vertices_);
-    }
-    // ----- 求解h_sd 求解alpha
-    // double alpha =
 
+        SolveLinearWithSchur(Hessian_, b_, h_gn_, reserve_size, schur_size, idx_landmark_vertices_, currentLambda_); 
+    }
+    // ----- 求解h_sd 和alpha
+    alpha_ = b_.squaredNorm() / (b_.transpose() * Hessian_ * b_);
+    h_sd_ = b_;
+    // ----- 求解步长 ----- //
+    double h_gn_norm = h_gn_.norm();
+    double h_sd_norm = h_sd_.norm();
+
+    if (h_gn_.norm() <= currentRadius_){
+        h_dl_ = h_gn_;
+    }
+    else if(alpha_ * h_sd_norm >= currentRadius_){
+        h_dl_ = (currentRadius_ / h_sd_norm) * h_sd_;
+    }
+    else{
+       // ----- 求解beta ----- //
+       VecX a = alpha_ * h_sd_;
+       VecX b = h_gn_;
+       double c = a.transpose() * (b - a);
+       double sqrt_scale = sqrt(c * c + (b - a).squaredNorm() * (currentRadius_ * currentRadius_ - a.squaredNorm())); 
+       if(c <= 0 ){
+           beta_ = (-c + sqrt_scale) / (b - a).squaredNorm();
+       } 
+       else{
+           beta_ = (currentRadius_ * currentRadius_ - a.squaredNorm()) / (c + sqrt_scale);
+       }
+       assert(beta_ > 0.0 && beta_ < 1.0);
+       h_dl_ = a + beta_ * (b - a);
+    }
+    delta_x_ = h_dl_;
 }
 
 void Problem::UpdateStates() {
@@ -675,6 +711,7 @@ void Problem::ComputeRadiusInitDogLeg(){
     currentChi_ = 0.0;
     // 计算当前chi
     for(auto edge:edges_){
+        // 此处不需要计算residual，因为MakeHessian时已经计算过
         currentChi_ += edge.second->RobustChi2();
     }
     // 计算先验chi
@@ -686,7 +723,7 @@ void Problem::ComputeRadiusInitDogLeg(){
 
     stopThresholdDogLeg_ = 1e-10 * currentChi_;
 
-    currentRadius_ = 1e4;
+    currentRadius_ = 1e2;
 }
 
 void Problem::AddLambdatoHessianLM() {
@@ -771,7 +808,55 @@ bool Problem::IsGoodStepInLM() {
 }
 
 bool Problem::IsGoodStepInDogLeg(){
+    double tempChi = 0.;
+    for(auto edge : edges_){
+        // 由于执行过updateState，需要重新计算残差
+        edge.second->ComputeResidual(); 
+        tempChi += edge.second->RobustChi2();
+    }
+    // 先验残差
+    if(err_prior_.size() > 0){
+        tempChi += err_prior_.squaredNorm();
+    }
 
+    tempChi *= 0.5; // 0.5 * error^2
+
+    // 计算rho
+    double rho = 0;
+    double scale = 0.;
+    int option = 1; // 选择论文策略或g20策略
+    // 根据不同策略计算线性化模型误差
+    switch (option)
+    {
+    case 0:
+        if( h_dl_ == h_gn_ ){
+            scale = currentChi_;
+        } else if( h_dl_ == currentRadius_ * b_ / b_.norm()){
+            scale = currentRadius_ * (2. * alpha_ * b_.norm() - currentRadius_) / (2. * alpha_);
+        } else{
+            0.5 * alpha_ * (1. - beta_) * (1. - beta_) * b_.squaredNorm() + beta_ * (2. - beta_) * currentChi_;
+        }
+        break;
+    case 1:
+        scale = -double(delta_x_.transpose() * Hessian_ * delta_x_) + 2 * b_.transpose() * delta_x_;
+        break;
+    }
+    rho = (currentChi_ - tempChi) / scale;
+    // 更新radius
+     if (rho > 0.75 && isfinite(tempChi)) {
+        currentRadius_ = std::max(currentRadius_, 3 * delta_x_.norm());
+    }
+    else if (rho < 0.25) {
+        currentRadius_ = std::max(currentRadius_ * 0.5, 1e-7);
+    } else {
+        // do nothing
+    }
+    if (rho > 0 && isfinite(tempChi)) {
+        currentChi_ = tempChi;
+        return true;
+    } else {
+        return false;
+    }
 }
 
 /** @brief conjugate gradient with perconditioning

@@ -201,7 +201,8 @@ private:
     double currentRadius_;
     double stopThresholdDogLeg_;
     VecX h_gn_; // 高斯牛顿法步长
-    VecX h_sd; // 最速下降法步长（带alpha）
+    VecX h_sd_; // 最速下降法步长（带alpha）
+    VecX h_dl_; // DogLeg步长
     double alpha_ = 0.0;
     double beta_ = 0.0;
     // LM相关参数
