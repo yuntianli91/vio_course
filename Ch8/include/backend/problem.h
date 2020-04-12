@@ -6,10 +6,17 @@
 #include <fstream>
 #include <map>
 #include <memory>
+#include <initializer_list> //列表初始化，用于可变参数函数
+#include <thread> // 多线程
+#include <mutex>  //互斥锁
+#include <functional>
+#include <condition_variable> // 条件变量/
 
 #include "eigen_types.h"
 #include "edge.h"
 #include "vertex.h"
+
+using namespace std;
 
 typedef unsigned long ulong;
 
@@ -126,8 +133,16 @@ private:
     /// set ordering for new vertex in slam problem
     void AddOrderingSLAM(std::shared_ptr<Vertex> v);
 
-    /// 构造大H矩阵
+    /// 构造Hessian矩阵，总函数
     void MakeHessian();
+    /// 构造大H矩阵，单线程
+    void MakeHessianSingle();
+    /// 构造大H矩阵，多线程
+    void MakeHessianMulti();
+    // 每个线程中用于计算Hessian的函数
+    void thdCalcHessian(int thd_id, int thd_num);
+    /// 构造大矩阵，采用OpenMP
+    void MakeHessianOpenMP();
 
     /// schur求解SBA
     void SchurSBA();
@@ -193,7 +208,7 @@ private:
     /// PCG 迭代线性求解器
     VecX PCGSolver(const MatXX &A, const VecX &b, int maxIter);
     /// 存储时间
-    void saveSolverCost(double solver_cost);
+    void saveCost(initializer_list<double> times);
 
     double currentChi_;
     double solve_cost_; // 求解器每次迭代耗时
@@ -201,7 +216,7 @@ private:
     double currentRadius_;
     double stopThresholdDogLeg_;
     VecX h_gn_; // 高斯牛顿法步长
-    VecX h_sd_; // 最速下降法步长（带alpha）
+    VecX h_sd_; // 最速下降法步长
     VecX h_dl_; // DogLeg步长
     double alpha_ = 0.0;
     double beta_ = 0.0;
@@ -219,6 +234,12 @@ private:
     MatXX diagHessian_;
     VecX b_;
     VecX delta_x_;
+
+    /// 用于多线程计算的变量
+    MatXX multi_H_;
+    VecX multi_b_;
+    mutex m_hessian_;
+    vector<unsigned long> edges_idx_;
 
     /// 先验部分信息
     MatXX H_prior_;
